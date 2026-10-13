@@ -1,0 +1,60 @@
+import { test, expect } from "@playwright/test";
+import { createHash, randomBytes } from "node:crypto";
+import sharp from "sharp";
+import { syntheticProfile, syntheticObservation } from "./scan-fit-fixtures";
+
+const origin = "http://127.0.0.1:3018", backend = "http://127.0.0.1:54338";
+test("public landing has no sign-in, and invalid or cross-origin links reveal no customer data", async ({ page, request }) => {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Your private measurement link" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: /password|email/i })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /log in|sign in/i })).toHaveCount(0);
+  expect((await request.get(origin + "/login")).status()).toBe(404);
+  expect((await request.post(origin + "/api/client-scan", { headers: { Origin: origin, Authorization: "Bearer " + "a".repeat(43) } })).status()).toBe(404);
+  expect((await request.post(origin + "/api/client-scan", { headers: { Origin: "https://unrelated.example" } })).status()).toBe(403);
+  await page.screenshot({ path: "output/client-browser/public-landing.png", fullPage: true });
+});
+test("client link needs no account and sends one private burst to the assigned CRM record for review", async ({ page, request }) => {
+  const state = await (await request.get(backend + "/__state")).json();
+  const adminToken = await (await request.post(backend + "/auth/v1/token?grant_type=password", { data: { email: "admin@example.test", password: "Fixture-password-123!" } })).json();
+  const headers = { Authorization: "Bearer auth-fixture-service-key" };
+  const profileResponse = await request.post(backend + "/rest/v1/rpc/scan_fit_operate", { headers, data: { actor: state.admin_id || "22222222-2222-4222-8222-222222222222", operation: "profile", payload: { ...syntheticProfile, version: randomBytes(5).toString("hex") } } });
+  expect(profileResponse.ok(), await profileResponse.text()).toBeTruthy();
+  const profile = await profileResponse.json();
+  const token = randomBytes(32).toString("base64url");
+  const receiptResponse = await request.post(backend + "/rest/v1/rpc/scan_fit_issue_client_link", { headers, data: { actor: state.admin_id || "22222222-2222-4222-8222-222222222222", payload: { customer_id: state.customer_id, order_id: "", profile_id: profile.id, token_hash: createHash("sha256").update(token).digest("hex"), expires_at: new Date(Date.now() + 3600000).toISOString() } } });
+  expect(receiptResponse.ok(), await receiptResponse.text()).toBeTruthy();
+  const receipt = await receiptResponse.json();
+  const clientHeaders = { Origin: origin, Authorization: "Bearer " + token };
+  const clientStatus = await (await request.post(origin + "/api/client-scan", { headers: clientHeaders })).json();
+  expect(clientStatus.session.customer_id).toBe(""); expect(clientStatus.session.operator_id).toBe(""); expect(clientStatus.session.order_id).toBeNull();
+  await page.goto("/#" + token);
+  await expect(page.getByRole("heading", { name: "Before you start" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Start my scan" })).toBeDisabled();
+  await page.screenshot({ path: "output/client-browser/client-instructions-desktop.png", fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
+  await page.screenshot({ path: "output/client-browser/client-instructions-mobile.png", fullPage: true });
+  await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: "Start my scan" }).click();
+  await expect(page.getByRole("button", { name: "Check and open rear camera" })).toBeVisible();
+  await page.screenshot({ path: "output/client-browser/client-capture.png", fullPage: true });
+  const observations = Array.from({ length: 5 }, (_, i) => syntheticObservation(i));
+  const multipart: Record<string, string | { name: string; mimeType: string; buffer: Buffer }> = { session_id: receipt.session_id, consent: "true", consent_version: "remote-capture/1", observations: JSON.stringify(observations) };
+  for (let i = 0; i < 5; i++) {
+    const image = await sharp({ create: { width: observations[i].width, height: observations[i].height, channels: 3, background: { r: 80 + i * 10, g: 100, b: 110 } } }).jpeg().toBuffer();
+    multipart["image_" + i] = { name: "frame-" + i + ".jpg", mimeType: "image/jpeg", buffer: image };
+  }
+  const upload = await request.put(origin + "/api/client-scan", { headers: clientHeaders, multipart });
+  expect(upload.ok(), await upload.text()).toBeTruthy();
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Thank you. Your scan is with Elevate." })).toBeVisible();
+  await page.screenshot({ path: "output/client-browser/client-submitted.png", fullPage: true });
+  const sessions = await (await request.get(backend + "/rest/v1/scan_fit_sessions?id=eq." + receipt.session_id, { headers: { Authorization: "Bearer " + adminToken.access_token } })).json();
+  expect(sessions[0].customer_id).toBe(state.customer_id); expect(sessions[0].status).toBe("Review"); expect(sessions[0].capture_source).toBe("remote_client"); expect(sessions[0].accepted_at).toBeNull();
+  const final = await (await request.post(origin + "/api/client-scan", { headers: clientHeaders })).json();
+  expect(final).toEqual({ state: "submitted" });
+  const replay = await request.put(origin + "/api/client-scan", { headers: clientHeaders, multipart });
+  expect(replay.ok()).toBeTruthy();
+  expect((await request.get(origin + "/api/scan-fit/images/" + receipt.session_id)).status()).toBe(404);
+});

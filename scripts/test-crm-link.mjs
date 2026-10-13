@@ -1,0 +1,31 @@
+import { chromium } from "@playwright/test";
+import assert from "node:assert/strict";
+const backend = "http://127.0.0.1:54338", crm = "http://127.0.0.1:3009";
+const state = await (await fetch(backend + "/__state")).json();
+const browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROME_PATH || "/usr/bin/chromium" });
+try {
+  const page = await browser.newPage();
+  await page.goto(crm + "/login");
+  await page.getByRole("textbox", { name: /Email/ }).fill("admin@example.test");
+  await page.getByLabel(/^Password/).fill("Fixture-password-123!");
+  await page.getByRole("button", { name: "Log In", exact: true }).click();
+  await page.waitForURL(url => !url.pathname.includes("login"));
+  await page.goto(crm + `/customers/${state.customer_id}?tab=scan%20fit`);
+  await page.getByRole("heading", { name: "Remote client measurement" }).waitFor();
+  await page.getByRole("button", { name: "Create client measurement link" }).click();
+  const input = page.getByLabel("Private client link", { exact: true });
+  await input.waitFor();
+  const link = await input.inputValue();
+  assert.equal(new URL(link).origin, "http://127.0.0.1:3018");
+  assert.match(new URL(link).hash, /^#[A-Za-z0-9_-]{43}$/);
+  const clientPage = await browser.newPage();
+  await clientPage.goto(link);
+  await clientPage.getByRole("heading", { name: "Before you start" }).waitFor();
+  assert.equal(await clientPage.getByRole("textbox", { name: /password|email/i }).count(), 0);
+  await page.screenshot({ path: "../elevate-scan-fit/output/client-browser/crm-client-links.png", fullPage: true, mask: [input] });
+  await page.getByRole("button", { name: "Revoke this link" }).click();
+  await input.waitFor({ state: "hidden" });
+  await clientPage.reload();
+  await clientPage.getByRole("heading", { name: "This link is unavailable" }).waitFor();
+  console.log("PASS staff CRM creates a client link, the separate app opens without sign-in, and CRM revocation blocks it");
+} finally { await browser.close(); }

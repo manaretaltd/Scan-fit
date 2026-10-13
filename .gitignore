@@ -1,0 +1,18 @@
+node_modules/
+.next*/
+.env*
+!.env.example
+*.tsbuildinfo
+test-results/
+playwright-report/
+next-env.d.ts
+.DS_Store
+*.log
+# Local PDFs, screenshots, uploads, exports and temporary acceptance data.
+output/
+tmp/
+coverage/
+supabase/.temp/
+supabase/.branches/
+tests/fixtures/media/*.zip
+public/scan-fit-runtime/

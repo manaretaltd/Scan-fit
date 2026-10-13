@@ -1,0 +1,23 @@
+# Initial hosted acceptance environment. Review capacity before production use.
+# This file creates no database; connect a separately configured Supabase project.
+services:
+  - type: web
+    name: elevate-scan-fit-client
+    runtime: node
+    region: frankfurt
+    plan: free
+    autoDeployTrigger: 'off'
+    buildCommand: npx --yes pnpm@11.25.0 install --frozen-lockfile && npx --yes pnpm@11.25.0 prepare:scan-fit && npx --yes pnpm@11.25.0 build
+    startCommand: node node_modules/next/dist/bin/next start --hostname 0.0.0.0 --port $PORT
+    healthCheckPath: /login
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SCAN_FIT_ALLOW_TEST_ORDER_WRITES
+        value: "0"
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: APP_URL
+        sync: false

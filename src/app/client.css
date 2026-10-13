@@ -1,0 +1,14 @@
+.client-shell { max-width: 1100px; margin: 0 auto; padding: 24px; }
+.client-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 28px; }
+.client-header > span { font-size: 11px; font-weight: 700; letter-spacing: .14em; color: var(--muted); }
+.client-hero { background: linear-gradient(110deg, #163d40, #205b58); color: white; padding: 44px; border-radius: 24px; margin-bottom: 28px; }
+.client-hero .eyebrow { color: #b8ddd1; }
+.client-hero h1 { font-size: clamp(38px, 6vw, 64px); margin: 12px 0 18px; }
+.client-hero p { max-width: 620px; color: #e0eeeb; font-size: 18px; }
+.client-instructions { padding: 32px; }
+.client-instructions li { margin-bottom: 16px; line-height: 1.6; }
+.client-instructions .button { margin: 20px 0 8px; }
+.client-instructions > p { line-height: 1.6; }
+.client-success { padding: 36px; border-left: 4px solid #205b58; }
+.client-footer { margin: 32px 0; color: var(--muted); font-size: 12px; }
+@media(max-width:600px) { .client-shell { padding: 16px; } .client-hero { padding: 28px; } .client-header > span { max-width: 160px; text-align: right; } .client-instructions { padding: 20px; } }

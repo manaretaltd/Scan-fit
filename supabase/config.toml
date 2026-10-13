@@ -1,0 +1,30 @@
+project_id = "easysee-crm"
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17
+[studio]
+enabled = true
+port = 54323
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = []
+enable_signup = false
+[auth.email]
+enable_signup = false
+[storage]
+enabled = true
+file_size_limit = "10MiB"
+[auth.email.template.invite]
+subject = "Your Elevate Dental Optics CRM invitation"
+content_path = "./supabase/templates/invite.html"
+[auth.email.template.recovery]
+subject = "Reset your Elevate Dental Optics CRM password"
+content_path = "./supabase/templates/recovery.html"
