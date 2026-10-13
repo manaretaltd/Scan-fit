@@ -7,9 +7,9 @@ services:
     region: frankfurt
     plan: free
     autoDeployTrigger: 'off'
-    buildCommand: npx --yes pnpm@11.25.0 install --frozen-lockfile && npx --yes pnpm@11.25.0 prepare:scan-fit && npx --yes pnpm@11.25.0 build
+    buildCommand: npx --yes pnpm@11.25.0 install --frozen-lockfile && npx --yes pnpm@11.25.0 build
     startCommand: node node_modules/next/dist/bin/next start --hostname 0.0.0.0 --port $PORT
-    healthCheckPath: /login
+    healthCheckPath: /
     envVars:
       - key: NODE_ENV
         value: production

@@ -40,6 +40,12 @@ Browser tests default to `/usr/bin/chromium`; set `PLAYWRIGHT_CHROME_PATH` to an
 
 ## Connecting the real CRM
 
+### Hostinger build settings
+
+Use a **Node.js / Next.js app**, repository `manaretaltd/Scan-fit`, branch `main`, and Node 24. Install with `pnpm install --frozen-lockfile`, build with `pnpm build`, and start with `pnpm start`. The build now prepares and checksum-verifies the required model/WASM assets automatically. Static-file hosting cannot run the submission API.
+
+The homepage displays **Your private measurement link** until it is opened with a valid customer link created in the updated CRM. That is the expected account-free landing state. **This link is unavailable** can indicate an expired/revoked token, missing CRM schema/configuration, or a failed backend connection; inspect deployment/runtime logs and the network response before assuming the link expired. No real CRM settings are included in this repository.
+
 Use the **existing CRM Supabase project and staff records**, with the existing scoped access rules. Do not create a second customer database, clone real customer data or run the empty-project bootstrap on the CRM.
 
 The new client service needs these values securely in its hosting settings:
